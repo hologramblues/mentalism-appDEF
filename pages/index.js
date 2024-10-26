@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Settings, ArrowLeft, Bluetooth } from 'lucide-react';
-import '../styles/globals.css';
+
 
 export default function Home() {
   const [view, setView] = useState('game');
