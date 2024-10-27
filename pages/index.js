@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { Settings, ArrowLeft, Bluetooth } from 'lucide-react';
 
-
 export default function Home() {
+  // États de base
   const [view, setView] = useState('game');
   const [currentList, setCurrentList] = useState('zodiac');
   const [possibleWords, setPossibleWords] = useState(['belier', 'taureau', 'gemeaux', 'cancer', 'lion', 'vierge', 'balance', 'scorpion', 'sagittaire', 'capricorne', 'verseau', 'poissons']);
@@ -16,26 +16,26 @@ export default function Home() {
   const characteristicRef = useRef(null);
   const [showInstallPrompt, setShowInstallPrompt] = useState(true);
   const [isStandalone, setIsStandalone] = useState(false);
+  const [lastTouched, setLastTouched] = useState(null);
 
-useEffect(() => {
-  // Vérifier si l'app est déjà installée
-  if (typeof window !== 'undefined' && window.matchMedia('(display-mode: standalone)').matches) {
-    setIsStandalone(true);
-    setShowInstallPrompt(false);
-  }
-}, []);
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.matchMedia('(display-mode: standalone)').matches) {
+      setIsStandalone(true);
+      setShowInstallPrompt(false);
+    }
+  }, []);
 
   const addLog = (message) => {
     setDebugLog(prev => [...prev, `${new Date().toLocaleTimeString()}: ${message}`].slice(-5));
   };
 
   const connectPeeksmith = async () => {
-    if (typeof window === 'undefined' || !navigator.bluetooth) {
-      addLog('Bluetooth non disponible');
-      return;
-    }
-
     try {
+      if (typeof window === 'undefined' || !navigator.bluetooth) {
+        alert('Le Bluetooth n\'est pas disponible sur cet appareil ou dans ce contexte');
+        return;
+      }
+
       addLog('Démarrage connexion PeekSmith...');
       setBluetoothStatus('connecting');
       
@@ -52,7 +52,6 @@ useEffect(() => {
       characteristicRef.current = characteristic;
       addLog('Caractéristique obtenue, configuration...');
 
-      // Activer les notifications
       await characteristic.startNotifications();
       characteristic.addEventListener('characteristicvaluechanged', handlePeeksmithButton);
       
@@ -60,11 +59,11 @@ useEffect(() => {
       setInputMethod('bluetooth');
       addLog('PeekSmith connecté !');
       
-      // Message de test
       await sendToPeeksmith('$Ready\n');
 
     } catch (error) {
       console.error('Bluetooth error:', error);
+      alert(`Erreur de connexion : ${error.message}`);
       addLog(`Erreur: ${error.message}`);
       setBluetoothStatus('disconnected');
     }
@@ -119,7 +118,6 @@ useEffect(() => {
     });
     return bestLetter;
   };
-
   const handleResponse = async (isYes) => {
     const letter = currentQuestion || findBestQuestion(possibleWords);
     const newHistory = [...questionHistory, {
@@ -151,18 +149,6 @@ useEffect(() => {
     setTimeout(() => setLastSwipe(null), 200);
   };
 
-  const restart = async () => {
-    setPossibleWords(['belier', 'taureau', 'gemeaux', 'cancer', 'lion', 'vierge', 'balance', 'scorpion', 'sagittaire', 'capricorne', 'verseau', 'poissons']);
-    setQuestionHistory([]);
-    const firstQuestion = findBestQuestion(['belier', 'taureau', 'gemeaux', 'cancer', 'lion', 'vierge', 'balance', 'scorpion', 'sagittaire', 'capricorne', 'verseau', 'poissons']);
-    setCurrentQuestion(firstQuestion);
-    setView('game');
-
-    if (bluetoothStatus === 'connected') {
-      await sendToPeeksmith(`$${firstQuestion}\n`);
-    }
-  };
-
   const handleTouchStart = (e) => {
     if (inputMethod !== 'swipe') return;
     setTouchStart(e.touches[0].clientY);
@@ -178,16 +164,26 @@ useEffect(() => {
     setTouchStart(null);
   };
 
+  const restart = async () => {
+    setPossibleWords(['belier', 'taureau', 'gemeaux', 'cancer', 'lion', 'vierge', 'balance', 'scorpion', 'sagittaire', 'capricorne', 'verseau', 'poissons']);
+    setQuestionHistory([]);
+    const firstQuestion = findBestQuestion(['belier', 'taureau', 'gemeaux', 'cancer', 'lion', 'vierge', 'balance', 'scorpion', 'sagittaire', 'capricorne', 'verseau', 'poissons']);
+    setCurrentQuestion(firstQuestion);
+    setView('game');
+
+    if (bluetoothStatus === 'connected') {
+      await sendToPeeksmith(`$${firstQuestion}\n`);
+    }
+  };
+
   return (
     <div className="h-screen w-screen bg-black text-neutral-400 font-mono text-xs">
-      <div className="absolute top-4 right-4 z-10">
-        <button 
-          onClick={() => setView(view === 'settings' ? 'game' : 'settings')}
-          className="p-2 opacity-50 hover:opacity-100"
-        >
-          {view === 'settings' ? <ArrowLeft className="h-4 w-4" /> : <Settings className="h-4 w-4" />}
-        </button>
-      </div>
+      <button 
+        className="absolute top-4 right-4 z-10 p-2 opacity-50 hover:opacity-100"
+        onClick={() => setView(view === 'settings' ? 'game' : 'settings')}
+      >
+        {view === 'settings' ? <ArrowLeft className="h-4 w-4" /> : <Settings className="h-4 w-4" />}
+      </button>
 
       {bluetoothStatus !== 'disconnected' && (
         <div className="absolute bottom-0 left-0 right-0 bg-black/80 p-4 text-[10px] space-y-1">
@@ -203,38 +199,38 @@ useEffect(() => {
           
           <div className="space-y-4">
             <h3 className="text-sm opacity-50">Méthode d'input</h3>
-       
-        {!isStandalone && showInstallPrompt && (
-  <div className="p-3 border border-yellow-500 rounded mb-4">
-    <p className="text-sm">
-      Pour utiliser le PeekSmith, ajoutez d'abord cette app à votre écran d'accueil :
-    </p>
-    <ol className="text-xs mt-2 space-y-1 opacity-75">
-      <li>1. Appuyez sur le bouton Partager ⬆️</li>
-      <li>2. Faites défiler et appuyez sur "Sur l'écran d'accueil" 📱</li>
-      <li>3. Appuyez sur "Ajouter" ➕</li>
-    </ol>
-    <button 
-      onClick={() => setShowInstallPrompt(false)} 
-      className="text-xs opacity-50 mt-2"
-    >
-      Fermer
-    </button>
-  </div>
-)}
+
+            {!isStandalone && showInstallPrompt && (
+              <div className="p-3 border border-yellow-500 rounded mb-4">
+                <p className="text-sm">
+                  Pour utiliser le PeekSmith, ajoutez d'abord cette app à votre écran d'accueil :
+                </p>
+                <ol className="text-xs mt-2 space-y-1 opacity-75">
+                  <li>1. Appuyez sur le bouton Partager ⬆️</li>
+                  <li>2. Faites défiler et appuyez sur "Sur l'écran d'accueil" 📱</li>
+                  <li>3. Appuyez sur "Ajouter" ➕</li>
+                </ol>
+                <button 
+                  onClick={() => setShowInstallPrompt(false)} 
+                  className="text-xs opacity-50 mt-2"
+                >
+                  Fermer
+                </button>
+              </div>
+            )}
             
-            <div 
-              className={`p-3 border rounded flex items-center justify-between ${
+            <button 
+              className={`w-full p-3 border rounded flex items-center justify-between ${
                 inputMethod === 'swipe' ? 'border-blue-500' : 'border-neutral-800'
               }`}
               onClick={() => setInputMethod('swipe')}
             >
               <span>Swipe</span>
               <span className="text-[10px] opacity-50">Haut/Bas</span>
-            </div>
+            </button>
 
-            <div 
-              className={`p-3 border rounded flex items-center justify-between ${
+            <button 
+              className={`w-full p-3 border rounded flex items-center justify-between ${
                 inputMethod === 'bluetooth' ? 'border-blue-500' : 'border-neutral-800'
               }`}
               onClick={connectPeeksmith}
@@ -248,18 +244,15 @@ useEffect(() => {
                    'Cliquer pour connecter'}
                 </span>
               </div>
-            </div>
+            </button>
 
             {bluetoothStatus === 'connected' && (
-              <div className="p-3 border border-neutral-800 rounded">
-                <h4 className="mb-2">Test PeekSmith</h4>
-                <button 
-                  onClick={() => sendToPeeksmith('$Test\n')}
-                  className="w-full p-2 bg-neutral-800 rounded"
-                >
-                  Envoyer message test
-                </button>
-              </div>
+              <button 
+                onClick={() => sendToPeeksmith('$Test\n')}
+                className="w-full p-3 border rounded bg-blue-500/10 hover:bg-blue-500/20"
+              >
+                Tester la connexion
+              </button>
             )}
           </div>
         </div>
