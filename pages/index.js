@@ -14,6 +14,16 @@ export default function Home() {
   const [bluetoothStatus, setBluetoothStatus] = useState('disconnected');
   const [debugLog, setDebugLog] = useState([]);
   const characteristicRef = useRef(null);
+  const [showInstallPrompt, setShowInstallPrompt] = useState(true);
+  const [isStandalone, setIsStandalone] = useState(false);
+
+useEffect(() => {
+  // Vérifier si l'app est déjà installée
+  if (typeof window !== 'undefined' && window.matchMedia('(display-mode: standalone)').matches) {
+    setIsStandalone(true);
+    setShowInstallPrompt(false);
+  }
+}, []);
 
   const addLog = (message) => {
     setDebugLog(prev => [...prev, `${new Date().toLocaleTimeString()}: ${message}`].slice(-5));
@@ -193,6 +203,25 @@ export default function Home() {
           
           <div className="space-y-4">
             <h3 className="text-sm opacity-50">Méthode d'input</h3>
+       
+        {!isStandalone && showInstallPrompt && (
+  <div className="p-3 border border-yellow-500 rounded mb-4">
+    <p className="text-sm">
+      Pour utiliser le PeekSmith, ajoutez d'abord cette app à votre écran d'accueil :
+    </p>
+    <ol className="text-xs mt-2 space-y-1 opacity-75">
+      <li>1. Appuyez sur le bouton Partager ⬆️</li>
+      <li>2. Faites défiler et appuyez sur "Sur l'écran d'accueil" 📱</li>
+      <li>3. Appuyez sur "Ajouter" ➕</li>
+    </ol>
+    <button 
+      onClick={() => setShowInstallPrompt(false)} 
+      className="text-xs opacity-50 mt-2"
+    >
+      Fermer
+    </button>
+  </div>
+)}
             
             <div 
               className={`p-3 border rounded flex items-center justify-between ${
