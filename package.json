@@ -18,7 +18,7 @@
     "postcss": "^8.4.21",
     "@capacitor/core": "latest",
     "@capacitor/ios": "latest",
-    "@capacitor/bluetooth-le": "latest"
+    "@capacitor-community/bluetooth-le": "latest"
   },
   "devDependencies": {
     "@capacitor/cli": "latest"
