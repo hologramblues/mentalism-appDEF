@@ -340,6 +340,12 @@ export default function Home() {
             Tap pour recommencer
           </div>
         </div>
+{/* Ajoutez ceci juste avant la dernière balise de fermeture </div> de votre composant */}
+<div className="fixed bottom-0 left-0 right-0 bg-black/90 p-4 max-h-40 overflow-y-auto">
+  {debugLog.map((log, i) => (
+    <div key={i} className="text-xs text-white/70">{log}</div>
+  ))}
+</div>
       )}
     </div>
   );
