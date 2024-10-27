@@ -29,77 +29,44 @@ export default function Home() {
     setDebugLog(prev => [...prev, `${new Date().toLocaleTimeString()}: ${message}`].slice(-5));
   };
 
-  const connectPeeksmith = async () => {
+ // Dans votre index.js, modifiez la fonction connectPeeksmith :
+
+const connectPeeksmith = async () => {
   try {
-    // Détection de base
-    addLog('Démarrage des tests...');
+    addLog('Initialisation du Bluetooth...');
+    await BluetoothService.initialize();
     
-    const userAgent = navigator.userAgent;
-    addLog(`UserAgent: ${userAgent}`);
-    
-    const isIOS = /iPad|iPhone|iPod/.test(userAgent);
-    addLog(`Est iOS: ${isIOS}`);
-    
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-    addLog(`Est Standalone: ${isStandalone}`);
-    
-    // Test si Safari
-    const isSafari = /Safari/.test(userAgent) && !/Chrome/.test(userAgent);
-    addLog(`Est Safari: ${isSafari}`);
-    
-    // Test présence API Bluetooth
-    const hasBluetoothAPI = !!navigator.bluetooth;
-    addLog(`A l'API Bluetooth: ${hasBluetoothAPI}`);
-    
-    // Tests supplémentaires
-    if (typeof window !== 'undefined') {
-      addLog('Window disponible');
-      if (window.navigator) {
-        addLog('Navigator disponible');
-        if (window.navigator.bluetooth) {
-          addLog('Bluetooth disponible');
-        } else {
-          addLog('Bluetooth NON disponible');
-        }
-      }
-    }
-
-    // Au lieu d'afficher directement l'alerte, attendons de voir les logs
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // Maintenant vérifions les conditions
-    if (!hasBluetoothAPI) {
-      if (isIOS && !isStandalone) {
-        addLog('iOS détecté mais pas en standalone');
-        alert('Sur iOS, vous devez:\n1. Ouvrir cette page dans Safari\n2. Appuyer sur le bouton partage ↑\n3. Choisir "Sur l\'écran d\'accueil"\n4. Ouvrir l\'application depuis l\'icône');
-        return;
-      } else if (isIOS && isStandalone) {
-        addLog('iOS en standalone mais pas de Bluetooth');
-        alert('Erreur : Bluetooth non disponible\nVérifiez que:\n1. Le Bluetooth est activé\n2. L\'app est bien ouverte depuis l\'icône\n3. Vous avez redémarré l\'app');
-        return;
-      } else {
-        addLog('Navigateur non supporté');
-        alert('Ce navigateur ne supporte pas le Bluetooth.\nUtilisez Chrome Desktop ou installez l\'app sur iOS.');
-        return;
-      }
-    }
-
-    // Si on arrive ici, on peut tenter la connexion Bluetooth
-    addLog('Tentative de connexion Bluetooth...');
+    addLog('Recherche du PeekSmith...');
     setBluetoothStatus('connecting');
-
-    const device = await navigator.bluetooth.requestDevice({
-      filters: [
-        { namePrefix: 'PeekSmith' }
-      ],
-      optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb']
+    
+    let deviceId: string | null = null;
+    await BluetoothService.scanForPeekSmith((id) => {
+      deviceId = id;
     });
 
-    // ... reste du code de connexion ...
+    if (!deviceId) {
+      throw new Error('PeekSmith non trouvé');
+    }
+
+    addLog('Connexion au PeekSmith...');
+    await BluetoothService.connect(deviceId);
+
+    await BluetoothService.startNotifications(deviceId, (data) => {
+      const decoder = new TextDecoder();
+      const value = decoder.decode(data);
+      handlePeeksmithButton({ target: { value } });
+    });
+
+    setBluetoothStatus('connected');
+    setInputMethod('bluetooth');
+    
+    await BluetoothService.write(deviceId, '$Ready\n');
+    addLog('PeekSmith connecté !');
 
   } catch (error) {
-    console.error('Erreur:', error);
-    addLog(`ERREUR: ${error.message}`);
+    console.error('Erreur Bluetooth:', error);
+    addLog(`Erreur: ${error.message}`);
+    alert(`Erreur de connexion : ${error.message}`);
     setBluetoothStatus('disconnected');
   }
 };
