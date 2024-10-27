@@ -30,56 +30,74 @@ export default function Home() {
   };
 
   const connectPeeksmith = async () => {
-    try {
-      if (typeof window === 'undefined' || !navigator.bluetooth) {
-        alert('Le Bluetooth n\'est pas disponible sur cet appareil ou dans ce contexte');
-        return;
-      }
-
-      addLog('Démarrage connexion PeekSmith...');
-      setBluetoothStatus('connecting');
-      
-      const device = await navigator.bluetooth.requestDevice({
-        filters: [{ name: 'PeekSmith' }],
-        optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb']
-      });
-
-      addLog('Appareil sélectionné, connexion...');
-      const server = await device.gatt.connect();
-      const service = await server.getPrimaryService('0000ffe0-0000-1000-8000-00805f9b34fb');
-      const characteristic = await service.getCharacteristic('0000ffe1-0000-1000-8000-00805f9b34fb');
-      
-      characteristicRef.current = characteristic;
-      addLog('Caractéristique obtenue, configuration...');
-
-      await characteristic.startNotifications();
-      characteristic.addEventListener('characteristicvaluechanged', handlePeeksmithButton);
-      
-      setBluetoothStatus('connected');
-      setInputMethod('bluetooth');
-      addLog('PeekSmith connecté !');
-      
-      await sendToPeeksmith('$Ready\n');
-
-    } catch (error) {
-      console.error('Bluetooth error:', error);
-      alert(`Erreur de connexion : ${error.message}`);
-      addLog(`Erreur: ${error.message}`);
-      setBluetoothStatus('disconnected');
+  try {
+    if (typeof navigator === 'undefined') {
+      addLog('Navigator non disponible');
+      return;
     }
-  };
 
-  const sendToPeeksmith = async (text) => {
-    if (!characteristicRef.current) return;
-    try {
-      addLog(`Envoi: ${text.trim()}`);
-      const encoder = new TextEncoder();
-      await characteristicRef.current.writeValue(encoder.encode(text));
-    } catch (error) {
-      addLog(`Erreur d'envoi: ${error.message}`);
-      setBluetoothStatus('disconnected');
+    if (!navigator.bluetooth) {
+      addLog('API Bluetooth non disponible');
+      console.log('navigator:', navigator);
+      alert('Votre navigateur ne supporte pas le Web Bluetooth. Assurez-vous d\'utiliser Safari sur iOS et d\'avoir installé l\'application sur l\'écran d\'accueil.');
+      return;
     }
-  };
+
+    addLog('Démarrage connexion PeekSmith...');
+    setBluetoothStatus('connecting');
+    
+    const device = await navigator.bluetooth.requestDevice({
+      filters: [{ 
+        namePrefix: 'PeekSmith'
+      }],
+      optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb']
+    }).catch(error => {
+      addLog('Erreur lors de la recherche : ' + error);
+      throw error;
+    });
+
+    addLog('Appareil sélectionné, connexion...');
+    const server = await device.gatt.connect().catch(error => {
+      addLog('Erreur lors de la connexion GATT : ' + error);
+      throw error;
+    });
+
+    const service = await server.getPrimaryService('0000ffe0-0000-1000-8000-00805f9b34fb').catch(error => {
+      addLog('Erreur lors de la recherche du service : ' + error);
+      throw error;
+    });
+
+    const characteristic = await service.getCharacteristic('0000ffe1-0000-1000-8000-00805f9b34fb').catch(error => {
+      addLog('Erreur lors de la recherche de la caractéristique : ' + error);
+      throw error;
+    });
+    
+    characteristicRef.current = characteristic;
+    addLog('Caractéristique obtenue, configuration...');
+
+    await characteristic.startNotifications().catch(error => {
+      addLog('Erreur lors du démarrage des notifications : ' + error);
+      throw error;
+    });
+
+    characteristic.addEventListener('characteristicvaluechanged', handlePeeksmithButton);
+    
+    setBluetoothStatus('connected');
+    setInputMethod('bluetooth');
+    addLog('PeekSmith connecté !');
+
+    await sendToPeeksmith('$Connected\n').catch(error => {
+      addLog('Erreur lors de l\'envoi du message de test : ' + error);
+      throw error;
+    });
+
+  } catch (error) {
+    console.error('Bluetooth error:', error);
+    addLog(`Erreur détaillée: ${error.toString()}`);
+    alert(`Erreur de connexion : ${error.message}\nVérifiez que votre Bluetooth est activé et que vous êtes sur l'app installée sur l'écran d'accueil.`);
+    setBluetoothStatus('disconnected');
+  }
+};
 
   const handlePeeksmithButton = (event) => {
     const value = new Uint8Array(event.target.value.buffer);
